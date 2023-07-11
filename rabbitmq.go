@@ -1,4 +1,4 @@
-package rmq
+package jxrabbitmq
 
 import (
 	"context"
@@ -12,16 +12,17 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-var Dialer *amqpextra.Dialer
-var P *publisher.Publisher
+var dialer *amqpextra.Dialer
+var p *publisher.Publisher
 
-type Option struct {
+type Config struct {
 	Url      string
 	Username string
 	Password string
 }
 
-func Init() error {
+func InitFromEV() error {
+	var err error
 	urls := make([]string, 0)
 	for _, v := range strings.Split(os.Getenv("RABBITMQ_POOL"), ",") {
 		urls = append(urls, "amqp://"+os.Getenv("RABBITMQ_USER")+":"+
@@ -29,19 +30,43 @@ func Init() error {
 			v+"/")
 	}
 
+	dialer, err = amqpextra.NewDialer(amqpextra.WithURL(urls...))
+	if err != nil {
+		return err
+	}
+
+	p, err = dialer.Publisher()
+	if err != nil {
+		return err
+	}
+	
+	return nil
+}
+
+func InitWithConfig(cf *Config) error {
+	urls := make([]string, 0)
+	for _, v := range strings.Split(cf.Url, ",") {
+		urls = append(urls, "amqp://"+cf.Username+":"+cf.Password+"@"+v+"/")
+	}
 	var err error
-	Dialer, err = amqpextra.NewDialer(
+	dialer, err = amqpextra.NewDialer(
 		amqpextra.WithURL(urls...),
 		amqpextra.WithRetryPeriod(3*time.Second),
 	)
 	if err != nil {
 		return err
 	}
-	P, err = Dialer.Publisher()
+
+	p, err = dialer.Publisher()
 	if err != nil {
 		return err
 	}
+
 	return nil
+}
+
+func GetPublisher() *publisher.Publisher {
+	return p
 }
 
 func Publish(ctx context.Context, queue string, headers map[string]interface{}, body interface{}) error {
@@ -60,7 +85,7 @@ func Publish(ctx context.Context, queue string, headers map[string]interface{}, 
 	if len(headers) > 0 {
 		message.Publishing.Headers = headers
 	}
-	return P.Publish(message)
+	return p.Publish(message)
 }
 
 func PublishNoHeader(ctx context.Context, queue string, body interface{}) error {
@@ -77,5 +102,5 @@ func PublishNoHeader(ctx context.Context, queue string, body interface{}) error 
 		},
 	}
 
-	return P.Publish(message)
+	return p.Publish(message)
 }
