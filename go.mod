@@ -1,4 +1,4 @@
-module github.com/ForbiddenR/jxrabbitmq
+module github.com/ForbiddenR/jx-rabbitmq
 
 go 1.20
 
