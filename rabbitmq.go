@@ -3,6 +3,7 @@ package jxrabbitmq
 import (
 	"context"
 	"encoding/json"
+	"math/rand/v2"
 	"os"
 	"strings"
 	"time"
@@ -22,14 +23,18 @@ type Config struct {
 }
 
 func InitFromEV() error {
-	var err error
 	urls := make([]string, 0)
 	for _, v := range strings.Split(os.Getenv("RABBITMQ_POOL"), ",") {
 		urls = append(urls, "amqp://"+os.Getenv("RABBITMQ_USER")+":"+
 			os.Getenv("RABBITMQ_PASS")+"@"+
 			v+"/")
 	}
-
+	if len(urls) > 1 {
+		rand.Shuffle(len(urls), func(i, j int) {
+			urls[i], urls[j] = urls[j], urls[i]
+		})
+	}
+	var err error
 	dialer, err = amqpextra.NewDialer(amqpextra.WithURL(urls...))
 	if err != nil {
 		return err
@@ -39,7 +44,7 @@ func InitFromEV() error {
 	if err != nil {
 		return err
 	}
-	
+
 	return nil
 }
 
@@ -47,6 +52,11 @@ func InitWithConfig(cf *Config) error {
 	urls := make([]string, 0)
 	for _, v := range strings.Split(cf.Url, ",") {
 		urls = append(urls, "amqp://"+cf.Username+":"+cf.Password+"@"+v+"/")
+	}
+	if len(urls) > 1 {
+		rand.Shuffle(len(urls), func(i, j int) {
+			urls[i], urls[j] = urls[j], urls[i]
+		})
 	}
 	var err error
 	dialer, err = amqpextra.NewDialer(
@@ -69,7 +79,7 @@ func GetPublisher() *publisher.Publisher {
 	return p
 }
 
-func Publish(ctx context.Context, queue string, headers map[string]interface{}, body interface{}) error {
+func Publish(ctx context.Context, queue string, headers map[string]any, body any) error {
 	bytes, err := json.Marshal(body)
 	if err != nil {
 		return err
@@ -88,7 +98,7 @@ func Publish(ctx context.Context, queue string, headers map[string]interface{}, 
 	return p.Publish(message)
 }
 
-func PublishNoHeader(ctx context.Context, queue string, body interface{}) error {
+func PublishNoHeader(ctx context.Context, queue string, body any) error {
 	bytes, err := json.Marshal(body)
 	if err != nil {
 		return err

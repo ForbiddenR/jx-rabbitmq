@@ -1,6 +1,6 @@
 module github.com/ForbiddenR/jx-rabbitmq
 
-go 1.20
+go 1.22
 
 require (
 	github.com/makasim/amqpextra v1.2.1
